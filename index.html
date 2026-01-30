@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-br"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Expedição Elite v4.0</title>
+    
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Expedição">
+    <meta name="mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/709/709612.png">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&amp;display=swap" rel="stylesheet">
+    
+    <style>
+        :root { 
+            --accent: #22d3ee; --bg: #0f172a; --card: #1e293b; 
+            --text: #f1f5f9; --green: #2ecc71; --red: #e74c3c; --blue: #3b82f6; 
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body { 
+            font-family: 'Ubuntu', sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            padding: 10px; 
+            margin: 0;
+            overscroll-behavior: contain; /* Evita o "puxar para atualizar" acidental */
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+            background: var(--bg); /* Mantém a cor escura */
+        }
+
+        .container { max-width: 100%; margin: auto; }
+        
+        .panel { 
+            background: var(--card); 
+            padding: 15px; 
+            border-radius: 15px; 
+            border: 1px solid #334155; 
+            margin-bottom: 15px; 
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 { font-size: 1.2rem; margin-bottom: 15px !important; }
+
+        textarea { 
+            width: 100%; 
+            height: 80px; 
+            background: #0f172a; 
+            color: var(--accent); 
+            border: 1px solid #475569; 
+            padding: 12px; 
+            border-radius: 10px; 
+            font-size: 14px;
+            font-family: inherit;
+        }
+        
+        /* Grid de botões otimizado para celular (2 colunas) */
+        .btn-group { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; 
+            gap: 10px; 
+            margin-top: 15px; 
+        }
+
+        .btn { 
+            padding: 12px 5px; 
+            border: none; 
+            border-radius: 8px; 
+            font-weight: 700; 
+            cursor: pointer; 
+            text-transform: uppercase; 
+            font-size: 11px; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+
+        .btn-import { background: var(--accent); color: #0f172a; }
+        .btn-report { background: #a855f7; color: white; }
+        .btn-save { background: var(--blue); color: white; }
+        .btn-clear { background: var(--red); color: white; }
+
+        /* Tabela Mobile-Friendly */
+        .table-container { overflow-x: auto; border-radius: 12px; }
+        table { width: 100%; border-collapse: collapse; background: var(--card); font-size: 13px; }
+        th { background: #334155; color: var(--accent); padding: 12px 8px; text-align: left; font-size: 10px; }
+        td { padding: 12px 8px; border-bottom: 1px solid #334155; }
+        
+        .faturado { background-color: rgba(46, 204, 113, 0.15) !important; }
+        .faturado b { color: var(--green); }
+
+        /* Checkbox maior para facilitar o toque */
+        .check-fatura { 
+            width: 28px; height: 28px; 
+            cursor: pointer; 
+            accent-color: var(--green); 
+        }
+
+        .hora-f { font-family: monospace; font-size: 12px; color: #94a3b8; display: block; }
+        
+        /* Ajuste para telas muito pequenas */
+        @media (max-width: 380px) {
+            th, td { padding: 8px 4px; font-size: 12px; }
+            .btn { font-size: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="panel">
+        <h1 style="margin:0 0 15px 0; color: var(--accent); text-align: center;">🚚 MONITORAMENTO DE CARGAS </h1>
+        <textarea id="rawInput" placeholder="Cole os dados do Excel aqui..."></textarea>
+        <div class="btn-group">
+            <button class="btn btn-import" onclick="importarDados()">📥 CARREGAR</button>
+            <button class="btn btn-report" onclick="gerarRelatorioFinal()">📊 RELATÓRIO</button>
+            <button class="btn btn-save" onclick="baixarHTML()">💾 SALVAR HTML</button>
+            <button class="btn btn-clear" onclick="limparTudo()">🗑️ LIMPAR</button>
+        </div>
+    </div>
+
+    <table id="tabelaMaster">
+        <thead>
+            <tr>
+                <th style="width: 80px; text-align: center;">STATUS</th>
+                <th>VEÍCULO / FROTA</th>
+                <th>ROTA / DESTINO</th>
+                <th>HORA LIBERAÇÃO</th>
+            </tr>
+        </thead>
+        <tbody id="corpoTabela"></tbody>
+    </table>
+</div>
+
+<script>
+    // 1. CARREGAR E MANTER OS DADOS
+    window.onload = function() {
+        const dadosSalvos = JSON.parse(localStorage.getItem('expedicao_v4') || '[]');
+        if (dadosSalvos.length > 0) {
+            renderizarTabela(dadosSalvos);
+        }
+    };
+
+    function salvarEstado() {
+        const linhas = [];
+        document.querySelectorAll('#corpoTabela tr').forEach(tr => {
+            linhas.push({
+                faturado: tr.querySelector('.check-fatura').checked,
+                veiculo: tr.cells[1].innerText,
+                rota: tr.cells[2].innerText,
+                hora: tr.cells[3].innerText
+            });
+        });
+        localStorage.setItem('expedicao_v4', JSON.stringify(linhas));
+    }
+
+    function importarDados() {
+        const input = document.getElementById('rawInput').value.trim();
+        if (!input) return;
+
+        const novasLinhas = input.split('\n').map(linha => {
+            const cols = linha.split('\t');
+            return {
+                faturado: false,
+                veiculo: cols[0] || '---',
+                rota: cols[2] || cols[1] || '---',
+                hora: '--:--:--'
+            };
+        });
+
+        const dadosAtuais = JSON.parse(localStorage.getItem('expedicao_v4') || '[]');
+        const dadosUnidos = [...dadosAtuais, ...novasLinhas];
+        
+        renderizarTabela(dadosUnidos);
+        salvarEstado();
+        document.getElementById('rawInput').value = "";
+    }
+
+    function renderizarTabela(dados) {
+        const corpo = document.getElementById('corpoTabela');
+        corpo.innerHTML = "";
+        
+        dados.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            if(item.faturado) tr.classList.add('faturado');
+            
+            tr.innerHTML = `
+                <td style="text-align:center">
+                    <input type="checkbox" class="check-fatura" ${item.faturado ? 'checked' : ''} onchange="toggleFatura(this)">
+                </td>
+                <td><b>${item.veiculo}</b></td>
+                <td>${item.rota}</td>
+                <td class="hora-f">${item.hora}</td>
+            `;
+            corpo.appendChild(tr);
+        });
+    }
+
+    function toggleFatura(cb) {
+        const tr = cb.closest('tr');
+        const horaCell = tr.querySelector('.hora-f');
+        const veiculo = tr.cells[1].innerText;
+        const rota = tr.cells[2].innerText;
+        const horaAtual = new Date().toLocaleTimeString('pt-BR');
+
+        if (cb.checked) {
+            tr.classList.add('faturado');
+            horaCell.innerText = horaAtual;
+            
+            let msg = `*–––––––––––––––––––––––––*\n`;
+            msg += `          *✅ CARGA LIBERADA* \n`;
+            msg += `*–––––––––––––––––––––––––*\n\n`;
+            msg += `🚛  *VEÍCULO:* ${veiculo}\n`;
+            msg += `📍  *ROTA:* ${rota}\n`;
+            msg += `🕒  *HORÁRIO:* ${horaAtual}\n\n`;
+            msg += `*–––––––––––––––––––––––––*\n`;
+            
+            enviar(msg);
+        } else {
+            tr.classList.remove('faturado');
+            horaCell.innerText = "--:--:--";
+        }
+        salvarEstado();
+    }
+
+    function gerarRelatorioFinal() {
+        const dados = JSON.parse(localStorage.getItem('expedicao_v4') || '[]');
+        if (dados.length === 0) return;
+
+        let fat = "", pend = "", count = 0;
+
+        dados.forEach(item => {
+            if(item.faturado) {
+                count++;
+                fat += `✅ *${item.veiculo}* | ${item.rota}\n   ┗ _Saída: ${item.hora}_\n\n`;
+            } else {
+                pend += `⏳ *${item.veiculo}* | ${item.rota}\n   ┗ _Aguardando_\n\n`;
+            }
+        });
+
+        let rel = `*┏━━━━━━━━━━━━━━━━━━━┓*\n`;
+        rel += `*┃    📊 RELATÓRIO FINAL                                ┃*\n`;
+        rel += `*┗━━━━━━━━━━━━━━━━━━━┛*\n\n`;
+        rel += `*🔥 FATURADOS (${count}):*\n\n${fat || '_Vazio_\n'}`;
+        rel += `\n*⚠️ PENDENTES (${dados.length - count}):*\n\n${pend || '_Vazio_\n'}`;
+        rel += `*–––––––––––––––––––––––––*\n`;
+        rel += `🏁 *TOTAL:* ${dados.length} | 📅 *DATA:* ${new Date().toLocaleDateString('pt-BR')}`;
+
+        enviar(rel);
+    }
+
+    function limparTudo() {
+        if(confirm("Deseja apagar toda a lista?")) {
+            localStorage.removeItem('expedicao_v4');
+            document.getElementById('corpoTabela').innerHTML = "";
+        }
+    }
+
+    function enviar(texto) {
+        window.open("https://api.whatsapp.com/send?text=" + encodeURIComponent(texto), '_blank');
+    }
+
+    // --- FUNÇÃO DE DOWNLOAD ATUALIZADA ---
+function baixarHTML() {
+    // 1. Limpa o campo de texto para o arquivo não ir com lixo
+    document.getElementById('rawInput').value = "";
+
+    // 2. Sincroniza o estado visual dos checkboxes com o HTML real
+    const checkboxes = document.querySelectorAll('.check-fatura');
+    checkboxes.forEach(cb => {
+        if (cb.checked) {
+            cb.setAttribute('checked', 'checked');
+        } else {
+            cb.removeAttribute('checked');
+        }
+    });
+
+    // 3. Captura o HTML atualizado
+    const conteudo = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+    const blob = new Blob([conteudo], { type: 'text/html' });
+    const link = document.createElement('a');
+    
+    // 4. Define o nome do arquivo com a data atual
+    const data = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+    link.download = `Expedicao_Elite_${data}.html`;
+    link.href = window.URL.createObjectURL(blob);
+    link.click();
+}
+</script>
+
+
+</body></html>
