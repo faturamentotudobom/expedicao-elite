@@ -245,14 +245,14 @@
             }
         });
 
-        let rel = `*–––––––––––––––––––––––––*\n`;
+        let rel = `*============================*\n`;
         rel += `          *📊 RELATÓRIO FINAL*\n`;
-        rel += `*–––––––––––––––––––––––––*\n\n`;
+        rel += `*============================*\n\n`;
         rel += `*🔥 FATURADOS (${count}):*\n\n${fat || '_Vazio_\n'}`;
         rel += `\n*⚠️ PENDENTES (${dados.length - count}):*\n\n${pend || '_Vazio_\n'}`;
-        rel += `*–––––––––––––––––––––––––*\n`;
-        rel += `🏁 *TOTAL:* ${dados.length} | 📅 *DATA:* ${new Date().toLocaleDateString('pt-BR')}`;
-
+        rel += `*============================*\n`;
+        rel += `📅 *DATA:* ${new Date().toLocaleDateString('pt-BR')}\n`;
+        rel += `🏁 *TOTAL:* ${dados.length}`;
         enviar(rel);
     }
 
